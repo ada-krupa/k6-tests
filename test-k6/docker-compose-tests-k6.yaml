@@ -10,6 +10,5 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
-      target: runner
       args:
         NODE_VERSION: ${NODE_VERSION}
