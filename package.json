@@ -1,0 +1,10 @@
+{
+    "name": "k6-tests",
+    "version": "1.0.0",
+    "scripts": {
+        "test:k6": "test-k6/run-tests.sh"
+    },
+    "devDependencies": {
+        "@types/k6": "0.57.1"
+    }
+}
