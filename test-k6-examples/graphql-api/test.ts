@@ -1,7 +1,5 @@
-import { check, group } from 'k6'
+import { check } from 'k6'
 import http from 'k6/http'
-// import { test, executeAndParseGraphqlRequest } from '../../utils.ts'
-// import { executeBasicGraphqlChecks, validate } from '../../validation-utils.ts'
 import { getCountriesQuery } from './queries.ts'
 import { TextRefinedResponse, Country, GraphqlResponse } from './types.ts'
 
