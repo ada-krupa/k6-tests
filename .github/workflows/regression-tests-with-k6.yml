@@ -82,7 +82,7 @@ jobs:
         run: |
           echo "Waiting for the application to start..."
           for i in {1..20}; do
-            if curl --silent --fail http://localhost:300/healthcheck; 
+            if curl --silent --fail http://localhost:300/healthcheck; then
               echo "Application is ready!"
               break
             fi
