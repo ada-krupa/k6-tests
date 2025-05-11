@@ -15,7 +15,7 @@ export const getCountriesQuery = (filters: GetCountriesInput) => {
             }
         `,
         variables: {
-            name
-        }
+            name,
+        },
     }
 }

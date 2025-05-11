@@ -1,0 +1,130 @@
+name: Performance tests with K6
+run-name: Performance tests on ${{ inputs.environment }} environment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        description: 'Environment'
+        required: true
+        default: 'integration'
+        options:
+          - 'integration'
+          - 'staging'
+          - 'production'
+      performance_test_strategy:
+        type: choice
+        description: |
+          Performance test strategy. (BY_VIRTUAL_USERS - simulates multiple users concurrently. BY_ITERATIONS - runs a set number of iterations, each executing the test script once.)
+        required: true
+        default: 'BY_VIRTUAL_USERS'
+        options:
+          - 'BY_VIRTUAL_USERS'
+          - 'BY_ITERATIONS'
+      performance_test_time:
+        description: 'Duration of the performance test in minutes. Max is 40 min.'
+        required: true
+        default: '5'
+      target_iteration_or_vus:
+        description: 'Set the target number of iterations or virtual users, depending on the selected strategy. For VUs max is 500, for iteration - 100.'
+        required: true
+        default: '50'
+      use_info_logs:
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # TODO: add urls to respective environments once application is deployed
+  REQUEST_API_URL: ${{
+    inputs.environment == 'integration' && '' ||
+    inputs.environment == 'staging' && '' ||
+    inputs.environment == 'production' && '' }}
+  K6_VERSION: '0.57.0'
+  PERFORMANCE_TEST_STRATEGY: ${{ inputs.performance_test_strategy }}
+  PERFORMANCE_TEST_TIME: ${{ inputs.performance_test_time }}
+  TARGET_ITERATION_OR_VUS: ${{ inputs.target_iteration_or_vus }}
+  USE_INFO_LOGS: ${{ inputs.use_info_logs || false }}
+  # TODO: add proper credentials from secrects
+  USER_EMAIL: ''
+  USER_PASSWORD: ''
+
+jobs:
+  k6-tests:
+    name: Performance tests
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+
+      - name: Check if the target iteration or vus do not exceed the maximum limit based on strategy
+        run: |
+          strategy="${{ inputs.performance_test_strategy }}"
+          target="${{ inputs.target_iteration_or_vus }}"
+
+          if [ "$strategy" == "BY_VIRTUAL_USERS" ]; then
+            max_value=500
+          elif [ "$strategy" == "BY_ITERATIONS" ]; then
+            max_value=100
+          else
+            echo "Error: Unknown strategy $strategy"
+            exit 1
+          fi
+
+          if [ "$target" -gt "$max_value" ]; then
+            echo "Error: The input number exceeds the maximum allowed value of $max_value for strategy $strategy."
+            exit 1
+          fi
+
+      - name: Check if the performance test duration does not exceed the maximum limit
+        run: |
+          max_value=40
+          if [ "${{ inputs.performance_test_time }}" -gt $max_value ]; then
+            echo "Error: The performance test duration exceeds the maximum allowed value of $max_value."
+            exit 1
+          fi
+
+      - name: Set date for artifact name
+        id: set-date
+        run: |
+          DATE=$(date +'%Y-%m-%d-%H-%M-%S')
+          TEST_REPORT_FOLDER="test-k6/test-report/$DATE"
+          mkdir -p "$TEST_REPORT_FOLDER"
+          echo "DATE=$DATE" >> $GITHUB_OUTPUT
+          echo "TEST_REPORT_FOLDER=$TEST_REPORT_FOLDER" >> $GITHUB_OUTPUT
+
+      - name: Setup k6
+        uses: grafana/setup-k6-action@v1.1.0
+        with:
+          k6-version: ${{ env.K6_VERSION }}
+
+      - name: Run k6 tests
+        id: k6-tests
+        run: |
+          K6_WEB_DASHBOARD=true \
+          K6_WEB_DASHBOARD_EXPORT=${{ steps.set-date.outputs.TEST_REPORT_FOLDER }}/web-dashboard.html \
+          k6 run test-k6/setup.ts \
+            -e RUN_PERFORMANCE_TEST=true \
+            -e PERFORMANCE_TEST_STRATEGY=${{ env.PERFORMANCE_TEST_STRATEGY }} \
+            -e PERFORMANCE_TEST_TIME_IN_M=${{ env.PERFORMANCE_TEST_TIME }} \
+            -e TARGET_ITERATIONS_OR_VUS=${{ env.TARGET_ITERATION_OR_VUS }} \
+            -e REQUEST_API_URL=${{ env.REQUEST_API_URL }} \
+            -e USER_EMAIL=${{ env.USER_EMAIL }} \
+            -e USER_PASSWORD=${{ env.USER_PASSWORD }} \
+            -e USE_INFO_LOGS=${{ env.USE_INFO_LOGS }} \
+            --summary-export=${{ steps.set-date.outputs.TEST_REPORT_FOLDER }}/summary.json
+
+      - name: Upload artifact
+        if: always() && !cancelled()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: test-k6-${{ steps.set-date.outputs.DATE }}
+          path: ${{ steps.set-date.outputs.TEST_REPORT_FOLDER }}
+          retention-days: 14

@@ -1,0 +1,11 @@
+{
+    "extends": "./tsconfig.json",
+    "exclude": ["node_modules", "dist", "**/*spec.ts", "test-k6-examples"],
+    "compilerOptions": {
+        "sourceMap": false,
+        "declaration": false,
+        "declarationMap": false,
+        "diagnostics": false,
+        "removeComments": true
+    }
+}
