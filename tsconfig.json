@@ -20,5 +20,5 @@
         "noUnusedLocals": false,
         "incremental": true
     },
-    "exclude": ["node_modules", "dist", "test-k6-examples"]
+    "exclude": ["node_modules", "dist", "test-k6-examples", "test-k6"]
 }

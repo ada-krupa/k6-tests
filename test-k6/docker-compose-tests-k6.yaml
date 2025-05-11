@@ -1,0 +1,15 @@
+services:
+  api:
+    container_name: k6-tests
+    env_file:
+      - ./.env.tests-k6
+    ports:
+      - 3000:3000
+    volumes:
+      - ./../:/app
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: runner
+      args:
+        NODE_VERSION: ${NODE_VERSION}

@@ -1,6 +1,6 @@
 {
     "extends": "./tsconfig.json",
-    "exclude": ["node_modules", "dist", "**/*spec.ts", "test-k6-examples"],
+    "exclude": ["node_modules", "dist", "test-k6-examples", "test-k6"],
     "compilerOptions": {
         "sourceMap": false,
         "declaration": false,

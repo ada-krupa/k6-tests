@@ -1,1 +1,1 @@
-export const HEALTH_CHECK = 'health-check'
+export const HEALTH_CHECK = 'healthcheck'

@@ -1,11 +1,12 @@
 import { Controller, Get, Post, Put, Body, Param } from '@nestjs/common'
 import { CreateMovieDto, UpdateMovieDto } from './dto'
 import { MOVIES } from './constants'
+import { MovieModel } from './models'
 
 @Controller(MOVIES)
 export class MoviesController {
     @Get()
-    getAllMovies() {
+    getAllMovies(): Array<MovieModel> {
         return [
             {
                 id: '1',
@@ -23,7 +24,7 @@ export class MoviesController {
     }
 
     @Get(':id')
-    getMovieById(@Param('id') id: string) {
+    getMovieById(@Param('id') id: string): MovieModel {
         return {
             id,
             title: 'Inception',
