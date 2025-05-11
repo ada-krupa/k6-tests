@@ -3,11 +3,11 @@ import { check } from 'k6'
 import { TextRefinedResponse, DoughsResponse } from './types.ts'
 
 export default () => {
-    const reqHeaders = {
+    const headers = {
         Authorization: 'Token abcdef0123456789'
     }
     const response: TextRefinedResponse = http.get('https://quickpizza.grafana.com/api/doughs', {
-        headers: reqHeaders
+        headers
     })
 
     check(response, {
