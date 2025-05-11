@@ -29,6 +29,7 @@ on:
         required: true
         default: '1'
       use_info_logs:
+        description: 'Enable info logs'
         type: boolean
         required: false
         default: false
@@ -53,9 +54,6 @@ env:
   ITERATIONS: ${{ inputs.iterations || 1 }}
   ENVIRONMENT: ${{ inputs.environment || 'local' }}
   USE_INFO_LOGS: ${{ inputs.use_info_logs || 'false' }}
-  # TODO: add proper credentials from secrects
-  USER_EMAIL: ''
-  USER_PASSWORD: ''
 
 jobs:
   k6-tests:
@@ -68,16 +66,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4.2.2
 
-      - name: Use Node.js
-        if: ${{ env.ENVIRONMENT == 'local' }}
-        uses: actions/setup-node@v4.4.0
-        with:
-          node-version-file: '.nvmrc'
-
-      - name: Install dependencies
-        if: ${{ env.ENVIRONMENT == 'local' }}
-        run: yarn install --frozen-lockfile
-
       - name: Export .nvmrc to node version
         if: ${{ env.ENVIRONMENT == 'local' }}
         id: node-version
@@ -89,9 +77,26 @@ jobs:
           NODE_VERSION: ${{ steps.node-version.outputs.version }}
         run: docker compose -f test-k6/docker-compose-tests-k6.yaml up -d
 
-      - name: Wait for api container
+      - name: Wait for the app to be ready
         if: ${{ env.ENVIRONMENT == 'local' }}
-        run: docker exec api-starter /bin/sh -c "yarn wait-on -v tcp:0.0.0.0:3000"
+        run: |
+          echo "Waiting for the application to start..."
+          for i in {1..20}; do
+            if curl --silent --fail http://localhost:300/healthcheck; then
+              echo "Application is ready!"
+              break
+            fi
+            echo "Waiting for app to be ready..."
+            sleep 3
+          done
+
+      - name: Show docker container logs & status
+        if: ${{ env.ENVIRONMENT == 'local' }}
+        run: |
+          docker logs --details --since 10m k6-tests
+          docker ps -a
+          docker inspect --format='{{.State.ExitCode}}' k6-tests
+          docker exec k6-tests /bin/sh -c "node -v"
 
       - name: Set date for artifact name
         id: set-date
@@ -115,8 +120,6 @@ jobs:
           k6 run test-k6/setup.ts \
             -e VIRTUAL_USERS_NUMBER=${{ env.VIRTUAL_USERS_NUMBER }} \
             -e ITERATIONS=${{ env.ITERATIONS }} \
-            -e USER_EMAIL=${{ env.USER_EMAIL }} \
-            -e USER_PASSWORD=${{ env.USER_PASSWORD }} \
             -e REQUEST_API_URL=${{ env.REQUEST_API_URL }} \
             -e USE_INFO_LOGS=${{ env.USE_INFO_LOGS }} \
             -e RUN_PERFORMANCE_TEST=false \

@@ -10,6 +10,7 @@ on:
         required: true
         default: 'integration'
         options:
+          - 'local'
           - 'integration'
           - 'staging'
           - 'production'
@@ -31,6 +32,7 @@ on:
         required: true
         default: '50'
       use_info_logs:
+        description: 'Enable info logs'
         type: boolean
         required: false
         default: false
@@ -44,15 +46,14 @@ env:
   REQUEST_API_URL: ${{
     inputs.environment == 'integration' && '' ||
     inputs.environment == 'staging' && '' ||
-    inputs.environment == 'production' && '' }}
+    inputs.environment == 'production' && '' ||
+    'http://localhost:3000' }}
+  ENVIRONMENT: ${{ inputs.environment || 'local' }}
   K6_VERSION: '0.57.0'
   PERFORMANCE_TEST_STRATEGY: ${{ inputs.performance_test_strategy }}
   PERFORMANCE_TEST_TIME: ${{ inputs.performance_test_time }}
   TARGET_ITERATION_OR_VUS: ${{ inputs.target_iteration_or_vus }}
   USE_INFO_LOGS: ${{ inputs.use_info_logs || false }}
-  # TODO: add proper credentials from secrects
-  USER_EMAIL: ''
-  USER_PASSWORD: ''
 
 jobs:
   k6-tests:
@@ -63,7 +64,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4.2.2
-
       - name: Check if the target iteration or vus do not exceed the maximum limit based on strategy
         run: |
           strategy="${{ inputs.performance_test_strategy }}"
@@ -91,6 +91,38 @@ jobs:
             exit 1
           fi
 
+      - name: Export .nvmrc to node version
+        if: ${{ env.ENVIRONMENT == 'local' }}
+        id: node-version
+        run: echo "version=$(cat .nvmrc | sed 's/v//')" >> $GITHUB_OUTPUT
+
+      - name: Use Docker Compose
+        if: ${{ env.ENVIRONMENT == 'local' }}
+        env:
+          NODE_VERSION: ${{ steps.node-version.outputs.version }}
+        run: docker compose -f test-k6/docker-compose-tests-k6.yaml up -d
+
+      - name: Wait for the app to be ready
+        if: ${{ env.ENVIRONMENT == 'local' }}
+        run: |
+          echo "Waiting for the application to start..."
+          for i in {1..20}; do
+            if curl --silent --fail http://localhost:300/healthcheck; 
+              echo "Application is ready!"
+              break
+            fi
+            echo "Waiting for app to be ready..."
+            sleep 3
+          done
+
+      - name: Show docker container logs & status
+        if: ${{ env.ENVIRONMENT == 'local' }}
+        run: |
+          docker logs --details --since 10m k6-tests
+          docker ps -a
+          docker inspect --format='{{.State.ExitCode}}' k6-tests
+          docker exec k6-tests /bin/sh -c "node -v"
+
       - name: Set date for artifact name
         id: set-date
         run: |
@@ -116,8 +148,6 @@ jobs:
             -e PERFORMANCE_TEST_TIME_IN_M=${{ env.PERFORMANCE_TEST_TIME }} \
             -e TARGET_ITERATIONS_OR_VUS=${{ env.TARGET_ITERATION_OR_VUS }} \
             -e REQUEST_API_URL=${{ env.REQUEST_API_URL }} \
-            -e USER_EMAIL=${{ env.USER_EMAIL }} \
-            -e USER_PASSWORD=${{ env.USER_PASSWORD }} \
             -e USE_INFO_LOGS=${{ env.USE_INFO_LOGS }} \
             --summary-export=${{ steps.set-date.outputs.TEST_REPORT_FOLDER }}/summary.json
 
@@ -128,3 +158,9 @@ jobs:
           name: test-k6-${{ steps.set-date.outputs.DATE }}
           path: ${{ steps.set-date.outputs.TEST_REPORT_FOLDER }}
           retention-days: 14
+
+      - name: Compose Down
+        if: ${{ always() && env.ENVIRONMENT == 'local' }}
+        env:
+          NODE_VERSION: ${{ steps.node-version.outputs.version }}
+        run: docker compose -f test-k6/docker-compose-tests-k6.yaml down
