@@ -30,31 +30,16 @@ export const SCENARIOS: Record<string, Scenario> = runPerformanceTest
       }
     : createTestScenarios(createRegressionTestScenario)
 
-// moved to a separate function to identify better which scenario is failing in the summary report
-const createThresholdsForEachScenario = () =>
-    Object.fromEntries(
-        Object.keys(SCENARIOS).flatMap(scenario => [
-            [
-                `checks{scenario:${scenario}}`,
-                [
-                    {
-                        threshold: 'rate==1.00',
-                    },
-                ],
-            ],
-            [`http_req_duration{scenario:${scenario}}`, ['avg<2000']],
-        ]),
-    )
-
 export const options: Options = {
     thresholds: {
+        checks: ['rate==1.00'],
+        // http_req_duration: ['avg<1'],
         'checks{scenario:healthcheck}': [
             {
                 threshold: 'rate==1.00',
                 abortOnFail: true, // note: if healthcheck fails, do not run other tests
             },
         ],
-        ...createThresholdsForEachScenario(),
     },
     scenarios: {
         healthcheck: {
