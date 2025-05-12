@@ -35,7 +35,8 @@ export const createIterationsBasedPerformanceTestScenario = (exec: string): Scen
     /*
         Important note:
         The preAllocatedVUs should be high enough to handle the number of iterations per second you want to achieve in the stages.
-        If your test report contains 'dropped iterations' metric, increase this value, because it means that k6 was not able to handle the load you wanted to test.
+        If your test report contains 'dropped iterations' metric, increase this value, 
+        because it means that k6 was not able to handle the load you wanted to test.
     */
     preAllocatedVUs: 300,
     timeUnit: '1s',

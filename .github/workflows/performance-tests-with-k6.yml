@@ -8,12 +8,12 @@ on:
         type: choice
         description: 'Environment'
         required: true
-        default: 'integration'
+        default: 'local'
         options:
           - 'local'
-          - 'integration'
-          - 'staging'
-          - 'production'
+          # - 'integration'
+          # - 'staging'
+          # - 'production'
       performance_test_strategy:
         type: choice
         description: |
